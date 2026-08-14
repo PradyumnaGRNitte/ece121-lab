@@ -258,29 +258,43 @@ Add-Content -Path "$env:LOCALAPPDATA\ECE121\cleanup-log.txt" `
             -ErrorAction SilentlyContinue
 '@ | Set-Content $cleanFile -Encoding UTF8
 
+$timerOK = $false
+$logonOK = $false
+
+# 1. Two hours from now - covers the end of this lab session
 try {
     $action = New-ScheduledTaskAction -Execute "powershell.exe" `
               -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$cleanFile`""
     $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
                                         -DontStopIfGoingOnBatteries -StartWhenAvailable
-
     $when = (Get-Date).AddHours(2)
     Register-ScheduledTask -TaskName "ECE121-GitCleanup-Timer" -Force -ErrorAction Stop `
         -Action $action -Settings $set `
         -Trigger (New-ScheduledTaskTrigger -Once -At $when) | Out-Null
     OK ("Auto-cleanup scheduled for " + $when.ToString("HH:mm"))
+    $timerOK = $true
+}
+catch { WARN "Timer cleanup could not be scheduled: $($_.Exception.Message)" }
 
+# 2. At next logon - needs admin on most PCs, so failure here is normal
+try {
     Register-ScheduledTask -TaskName "ECE121-GitCleanup-Logon" -Force -ErrorAction Stop `
         -Action $action -Settings $set `
         -Trigger (New-ScheduledTaskTrigger -AtLogOn) | Out-Null
     OK "Auto-cleanup also scheduled at next logon"
+    $logonOK = $true
 }
-catch {
-    WARN "Could not schedule auto-cleanup: $($_.Exception.Message)"
-    WARN "You MUST run the cleanup manually before leaving."
-}
+catch { INFO "(Logon-trigger cleanup needs admin rights - skipped, not a problem)" }
 
 Write-Host ""
-WARN "Credentials auto-wipe in 2 hours, and at the next logon."
-WARN "To wipe immediately:  `$Cleanup=`$true; irm <script URL> | iex"
+if ($timerOK) {
+    WARN ("Credentials auto-wipe at " + (Get-Date).AddHours(2).ToString("HH:mm") + ".")
+    if (-not $logonOK) {
+        INFO "If you finish earlier, run the cleanup yourself - see below."
+    }
+} else {
+    WARN "AUTO-CLEANUP IS NOT ACTIVE ON THIS PC."
+    WARN "You MUST run the cleanup manually before you leave."
+}
+WARN "To wipe now:  `$Cleanup=`$true; irm <script URL> | iex"
 Write-Host ""
