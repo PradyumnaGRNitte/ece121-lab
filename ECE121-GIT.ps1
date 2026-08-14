@@ -114,16 +114,65 @@ if ($stale.Count) {
 $name  = Read-Host "Your name (e.g. Asha Kumar)"
 $email = Read-Host "Your GitHub email"
 
+
+# ============================================================
+#  Make sure we are inside a git repo - clone it if not
+# ============================================================
+if (-not (Test-Path ".git")) {
+    Write-Host ""
+    INFO "This folder is not linked to GitHub yet."
+    $url = Read-Host "Paste your GitHub repo URL (or press Enter to skip)"
+
+    if ($url) {
+        $url = $url.Trim()
+        if ($url -notmatch "^https://github\.com/") {
+            WARN "That does not look like a GitHub URL. Skipping clone."
+        }
+        else {
+            # strip any token someone pasted into the URL
+            $url = $url -replace "://[^/@\s]+@github\.com", "://github.com"
+            if ($url -notmatch "\.git$") { $url = $url + ".git" }
+            $folder = [IO.Path]::GetFileNameWithoutExtension($url)
+
+            if (Test-Path $folder) {
+                OK "Folder '$folder' already exists here"
+            } else {
+                INFO "Cloning $folder ..."
+                git clone $url 2>&1 | ForEach-Object { INFO $_ }
+            }
+
+            if (Test-Path (Join-Path $folder ".git")) {
+                Set-Location $folder
+                OK "Now inside: $((Get-Location).Path)"
+            } else {
+                WARN "Clone did not succeed. Check the URL and your internet."
+            }
+        }
+    }
+}
+
 if (Test-Path ".git") {
     git config --local user.name  $name
     git config --local user.email $email
     git config --local credential.helper ""
     OK "Identity set for THIS FOLDER only: $name <$email>"
+
+    # never let a token live in the remote URL
+    $r = git config --local --get remote.origin.url 2>$null
+    if ($r -and $r -match "://[^/@\s]+@github\.com") {
+        git remote set-url origin ($r -replace "://[^/@\s]+@github\.com", "://github.com")
+        WARN "Removed a token that was stored in the remote URL"
+    }
+
+    # keep compiled programs out of git
+    if (-not (Test-Path ".gitignore")) {
+        "*.exe`n" | Set-Content ".gitignore" -Encoding ASCII
+        OK "Created .gitignore (keeps .exe files out of GitHub)"
+    }
 } else {
-    WARN "This folder is not a git repo yet (run git init or git clone first)."
+    WARN "Not in a git repo - identity saved globally for now"
     git config --global user.name  $name
     git config --global user.email $email
-    OK "Identity set globally for now - it will be wiped at cleanup"
 }
 
 git config --global credential.helper ""
