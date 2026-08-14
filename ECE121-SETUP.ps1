@@ -66,6 +66,11 @@ $searchDirs = @(
     "C:\mingw64\bin"
 )
 function Find-Gpp {
+    # 1. Is g++ already working on this PC? (respects PATH, any install location)
+    $c = Get-Command g++ -ErrorAction SilentlyContinue
+    if ($c) { return (Split-Path $c.Source -Parent) }
+
+    # 2. Not on PATH - look in the usual install locations
     foreach ($d in $script:searchDirs) { if (Test-Path (Join-Path $d "g++.exe")) { return $d } }
     return $null
 }
