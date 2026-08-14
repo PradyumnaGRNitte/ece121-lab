@@ -183,6 +183,8 @@ if (Test-Path ".git") {
     git config --local user.name  $name
     git config --local user.email $email
     git config --local credential.helper ""
+    # so a plain "git push" works even on a fresh link (Git 2.37+)
+    git config --local push.autoSetupRemote true 2>$null
     OK "Identity set for THIS FOLDER only: $name <$email>"
 
     if (-not (Test-Path ".gitignore")) {
