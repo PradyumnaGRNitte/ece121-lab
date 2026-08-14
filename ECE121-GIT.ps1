@@ -164,10 +164,32 @@ if (Test-Path ".git") {
         WARN "Removed a token that was stored in the remote URL"
     }
 
-    # keep compiled programs out of git
+    # keep compiled programs and junk out of git
     if (-not (Test-Path ".gitignore")) {
-        "*.exe`n" | Set-Content ".gitignore" -Encoding ASCII
-        OK "Created .gitignore (keeps .exe files out of GitHub)"
+        @"
+# compiled programs
+*.exe
+*.o
+*.obj
+*.out
+a.exe
+a.out
+
+# debug files
+*.pdb
+*.ilk
+*.stackdump
+
+# editor / OS junk
+.vscode/
+Thumbs.db
+desktop.ini
+"@ | Set-Content ".gitignore" -Encoding ASCII
+        OK "Created .gitignore (keeps .exe and junk out of GitHub)"
+    }
+    elseif (-not (Select-String -Path ".gitignore" -Pattern "\*\.exe" -Quiet)) {
+        Add-Content ".gitignore" "`n*.exe`n*.o`n*.out"
+        OK "Added *.exe to your existing .gitignore"
     }
 } else {
     WARN "Not in a git repo - identity saved globally for now"
