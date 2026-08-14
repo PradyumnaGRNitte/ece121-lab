@@ -192,12 +192,31 @@ OK "Work folder ready: $work"
 # ============================================================
 if ($gccDir) {
     Push-Location $work
+
+    # Test 1 - basic C++17 build and run
     '#include <iostream>
 int main(){ std::cout << "SETUP OK"; }' | Set-Content ".\_t.cpp" -Encoding ASCII
     & g++ -std=c++17 .\_t.cpp -o .\_t.exe 2>&1 | Out-Null
-    if ((Test-Path ".\_t.exe") -and ((& .\_t.exe) -match "SETUP OK")) { OK "Compile + run test PASSED" }
-    else { FAIL "Test program did not build" }
-    Remove-Item ".\_t.cpp",".\_t.exe" -Force -ErrorAction SilentlyContinue
+    if ((Test-Path ".\_t.exe") -and ((& .\_t.exe) -match "SETUP OK")) {
+        OK "Compile + run test PASSED"
+    } else {
+        FAIL "Test program did not build"
+    }
+
+    # Test 2 - threads (Week 13). Old/win32-thread toolchains fail here.
+    '#include <iostream>
+#include <thread>
+#include <mutex>
+int main(){ std::mutex m; std::thread t([&]{ std::lock_guard<std::mutex> g(m); });
+            t.join(); std::cout << "THREADS OK"; }' | Set-Content ".\_th.cpp" -Encoding ASCII
+    & g++ -std=c++17 -pthread .\_th.cpp -o .\_th.exe 2>&1 | Out-Null
+    if ((Test-Path ".\_th.exe") -and ((& .\_th.exe) -match "THREADS OK")) {
+        OK "Thread support PASSED (Week 13 ready)"
+    } else {
+        FAIL "Threads not supported by this compiler - Week 13 will fail. Replace this toolchain."
+    }
+
+    Remove-Item ".\_t.cpp",".\_t.exe",".\_th.cpp",".\_th.exe" -Force -ErrorAction SilentlyContinue
     Pop-Location
 }
 
